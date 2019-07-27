@@ -45,6 +45,7 @@ def fetch_dataloader(input_size,  batch_size):
     }
 
     
+    print(len(subset["train"]))    
  
     ## Subset
     dataloaders_dict = {x: torch.utils.data.DataLoader ( subset[x], batch_size=batch_size,

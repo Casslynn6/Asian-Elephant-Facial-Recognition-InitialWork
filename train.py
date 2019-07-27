@@ -89,9 +89,9 @@ def resume_training():
                     running_correct_val_prec5 +=prec5
 
                 
-            epoch_loss = running_loss_train / dataset_sizes[phase] if phase == "train"  else running_loss_val / dataset_sizes[phase] 
-            epoch_acc_prec1 =  running_corrects_train_prec1 / dataset_sizes[phase] if phase == "train"  else running_corrects_val_prec1 / dataset_sizes[phase] 
-            epoch_acc_prec5 =  running_corrects_train_prec5/ dataset_sizes[phase] if phase == "train"  else running_corrects_val_prec5 / dataset_sizes[phase] 
+            epoch_loss = running_loss_train / len(dataloaders_dict[phase]) if phase == "train"  else running_loss_val / len(dataloaders_dict[phase]) 
+            epoch_acc_prec1 =  running_corrects_train_prec1 / len(dataloaders_dict[phase]) if phase == "train"  else running_corrects_val_prec1 / len(dataloaders_dict[phase]) 
+            epoch_acc_prec5 =  running_corrects_train_prec5/ len(dataloaders_dict[phase]) if phase == "train"  else running_corrects_val_prec5 / len(dataloaders_dict[phase])
 
 
             logging.info('{}  Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
@@ -242,13 +242,15 @@ logging.info("Initialized the model")
 momentum 	= 0.9
 lr_step_size 	= epochs
 criterion  	= nnet.loss_fn ## cross entropy loss
-optimizer 	= torch.optim.Adam(model.parameters(), lr = lr)
+## SGD optimizer, can try Adam optimizer
+optimizer 	= torch.optim.SGD(model.fc.parameters(), lr = lr)
 scheduler 	= torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_step_size, gamma=0.1, last_epoch=-1)
 
 logging.info ( "Starting training for {} epoch(s)".format ( epochs ) )
 
 
 ## Train and evaluate
+is_train = True
 if (is_train == True):	
     dataloaders_dict 	= data_loaders.fetch_dataloader(input_size = input_size, batch_size = batch_size)
     trainloader = dataloaders_dict["train"]
