@@ -8,7 +8,7 @@ import torch
 from glob import glob
 from pathlib import Path
 import pdb
-
+import scipy
 """
 Save dictionary to json file
 """
@@ -71,7 +71,7 @@ def load_last_model(model, model_path):
     models = glob(model_path + "/*.pth")
     if models:
         pdb.set_trace()
-        model_ids = [(int(f.split('_')[-4]), f) for f in models]
+        model_ids = [(int(f.split('_')[-7]), f) for f in models]
         start_epoch, last_cp 	= max(model_ids, key=lambda item:item[0])
         print('Last checkpoint: ', last_cp)
         model.load_state_dict(torch.load(last_cp))
@@ -91,7 +91,7 @@ def load_last_model(model, model_path):
         all_epoch_train_accuracy_prec5 = []
         all_epoch_val_accuracy_prec1 = []
         all_epoch_val_accuracy_prec5 = []
-    pdb.set_trace()
+    
     return start_epoch, all_epoch_train_losses, all_epoch_val_losses,all_epoch_train_accuracy_prec1, all_epoch_train_accuracy_prec5,all_epoch_val_accuracy_prec1, all_epoch_val_accuracy_prec5
 
     

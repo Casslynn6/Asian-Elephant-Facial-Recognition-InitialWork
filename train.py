@@ -14,7 +14,7 @@ import os
 import scipy.io as sio
 import argparse
 from glob import glob
-
+import torch.nn as nn
 from torch.backends import cudnn
 from torch.optim.lr_scheduler import StepLR
 
@@ -30,14 +30,18 @@ from torch.utils.model_zoo import tqdm
 
 def resume_training():
     start_epoch, all_epoch_train_losses, all_epoch_val_losses,all_epoch_train_accuracy_prec1, all_epoch_train_accuracy_prec5,all_epoch_val_accuracy_prec1, all_epoch_val_accuracy_prec5 = load_last_model(model,model_path)
-    
+    best_acc = -9999
+    best_acc_5 = -9999
+    since = time.time()
+
     for epoch in (range(start_epoch+1, start_epoch+epochs+1)):
 
         print('Epoch {}/{}'.format(epoch, start_epoch+epochs))
         print('-' * 10)
 
-        ## train and evaluate the model
+        ## train and evaluate the model, each epoch has two phases, train and val        
         for phase in ['train','val']:
+            total_images = len(dataloaders_dict[phase])
             if phase == 'train':
                 scheduler.step()
                 model.train(True)
@@ -45,15 +49,17 @@ def resume_training():
                 model.train(False)
                 model.eval()
 
-            running_loss_train = 0.0
-            running_loss_val = 0.0
+                
+            ## initialize the epoch parameters
+            if phase == "train":
+                running_loss_train = 0.0
+                running_corrects_train_prec1 = 0
+                running_corrects_train_prec5 = 0
+            else:
+                running_loss_val = 0.0
+                running_correct_val_prec1 = 0
+                running_correct_val_prec5 = 0
 
-            running_corrects_train_prec1 = 0
-            running_corrects_train_prec5 = 0
-            running_correct_val_prec1 = 0
-            running_correct_val_prec5 = 0
-
-            ##
             for data in tqdm(dataloaders_dict[phase]):
                 ## inputs and labels
                 inputs, labels = data
@@ -63,38 +69,34 @@ def resume_training():
                     labels = labels.cuda()
                 
                 optimizer.zero_grad()
-
                 outputs = model(inputs)
-
                 loss = criterion(outputs, labels)
 
                 ## No of samples
-                n_samples = inputs.size ()[0]
+                n_samples = inputs.size()[0]
                 (prec1, prec5) = accuracy(outputs.data.cpu(), labels.data.cpu(),topk=(1,5))
 
-                #pdb.set_trace()
+                
                 # backward + optimize only if in training phase
-                if phase == 'train':
+                if phase=='train':
                     loss.backward()
                     optimizer.step()
-                    
-                    ## statistics
                     running_loss_train += loss.data[0]
                     running_corrects_train_prec1+=prec1
                     running_corrects_train_prec5+=prec5
                 else:
-                     # statistics
                     running_loss_val+=loss.data[0]
                     running_correct_val_prec1 +=prec1
                     running_correct_val_prec5 +=prec5
 
-                
-            epoch_loss = running_loss_train / len(dataloaders_dict[phase]) if phase == "train"  else running_loss_val / len(dataloaders_dict[phase]) 
-            epoch_acc_prec1 =  running_corrects_train_prec1 / len(dataloaders_dict[phase]) if phase == "train"  else running_corrects_val_prec1 / len(dataloaders_dict[phase]) 
-            epoch_acc_prec5 =  running_corrects_train_prec5/ len(dataloaders_dict[phase]) if phase == "train"  else running_corrects_val_prec5 / len(dataloaders_dict[phase])
+
+            ## Compute Epoch loss, accuracy  
+            epoch_loss = running_loss_train / total_images if phase == "train"  else running_loss_val / total_images
+            epoch_acc_prec1 =  running_corrects_train_prec1 / total_images if phase == "train"  else running_correct_val_prec1 / total_images
+            epoch_acc_prec5 =  running_corrects_train_prec5/ total_images if phase == "train"  else running_correct_val_prec5 / total_images
 
 
-            logging.info('{}  Loss: {:.4f} Acc: {:.4f}'.format(phase, epoch_loss, epoch_acc))
+            logging.info('{}  Loss: {:.4f} Acc1: {:.4f},Acc5:{:.4f}'.format(phase, epoch_loss,epoch_acc_prec1.data.item(),epoch_acc_prec5.data.item()))
 
             if phase == "train":
                 all_epoch_train_losses.append(epoch_loss)
@@ -114,15 +116,16 @@ def resume_training():
                 best_model_wts = model.state_dict()
                 save_checkpoint(model, model_path, epoch, train_loss, val_loss, all_epoch_train_losses,all_epoch_val_losses, all_epoch_train_accuracy_prec1,all_epoch_train_accuracy_prec5,all_epoch_val_accuracy_prec1, all_epoch_val_accuracy_prec5)
 
+        print()
+    
+    time_elapsed = time.time() - since
+    print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
+    print('Best val Acc: {:4f}, {:4f}'.format(best_acc,best_acc_5))
 
-        time_elapsed = time.time() - since
-        print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
-        print('Best val Acc: {:4f}, {:4f}'.format(best_acc,best_acc_5))
+    # load best model weights
+    model.load_state_dict(best_model_wts)
 
-        # load best model weights
-        model.load_state_dict(best_model_wts)
-
-        return model
+    return model
 
 
 ## COmpute accuracy of the model
@@ -144,6 +147,7 @@ def accuracy(output, target, topk=(1,) ):
     for k in topk:
         correct_k = correct[:k].view ( -1 ).float ().sum ( 0, keepdim=True )
         res.append ( correct_k.mul_ ( 100.0 / batch_size ) )
+    
     return res
 
 #================================================================================================================================
@@ -196,7 +200,7 @@ is_train 	 	= args.is_train
 eval_set 		= args.eval_set
 model_name 		= args.model_name
 
-pdb.set_trace()
+
 
 ## Create model directory if it doesnt exists, for saving the trained models
 def create_dir(path, text):
@@ -221,6 +225,7 @@ if args.cuda:
     torch.cuda.manual_seed(args.seed)
 
 kwargs = {'num_workers':1, 'pin_memory': True} if args.cuda else {}
+device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 
 ## Initialize and select the pretrained model
  ## enable logging
@@ -230,12 +235,17 @@ use_dropout = False
 (model, input_size) = nnet.initialize_model("resnet",num_classes=10,use_pretrained=True)
 # enable cudalabels
 if (torch.cuda.is_available()):
-	model = model.cuda()
-	torch.cuda.set_device(device_id)
-	is_cuda = True
+    is_cuda = True
+    if torch.cuda.device_count() > 1:
+        print("Let's use", torch.cuda.device_count(), "GPUs!")
+        model = nn.DataParallel(model)
+
+    model = model.to(device)
 else:
 	is_cuda = False
 logging.info("Initialized the model")
+
+
 
 ## Initialize hyperparameters
 # initialize the training hyper-parameters
@@ -243,11 +253,15 @@ momentum 	= 0.9
 lr_step_size 	= epochs
 criterion  	= nnet.loss_fn ## cross entropy loss
 ## SGD optimizer, can try Adam optimizer
-optimizer 	= torch.optim.SGD(model.fc.parameters(), lr = lr)
+
+
+if torch.cuda.device_count()>1:
+    optimizer 	= torch.optim.SGD(model.module.fc.parameters(), lr = lr)
+else:
+    optimizer 	= torch.optim.SGD(model.fc.parameters(), lr = lr)
 scheduler 	= torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_step_size, gamma=0.1, last_epoch=-1)
 
 logging.info ( "Starting training for {} epoch(s)".format ( epochs ) )
-
 
 ## Train and evaluate
 is_train = True
