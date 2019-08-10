@@ -90,6 +90,7 @@ def load_last_model(model, model_path):
     else:
         start_epoch = 0
         last_cp = ''
+
         all_epoch_train_losses = np.array([])
         all_epoch_val_losses = np.array([])
         all_epoch_train_accuracy_prec1 = np.array([])
@@ -181,3 +182,5 @@ def visualize_test_acc(test_accs,confusion_mtxes,all_epochs):
     plt.title("Test accuracy - actual vs predicted")
    
     plt.savefig("classification_evaluation.png")
+
+   
