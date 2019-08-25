@@ -1,0 +1,17 @@
+data/.DS_Store
+data/train/
+data/test/
+data/val/
+models/
+output/
+__pycache__/
+data/*
+data/original/*
+data/binary-classifier/*.JPG
+.DS_Store
+._.DS_Store
+imbalanced_data_sampler.py
+notebooks/.ipynb_checkpoints/*.ipynb
+notebooks/.ipynb_checkpoints/Binary Classification-checkpoint.ipynb
+log.txt
+.vscode/settings.json

@@ -151,7 +151,8 @@ def visualize_test_acc(test_accs,confusion_mtxes,all_epochs):
     labels = ('Beco', 'Connie', 'Hank', 'Jati',
            'MyThai', 'Pheobe', 'Rudy', 'Sabu', 'Schottzie', 'Sunny')
 
-    cm = confusion_matrix
+    print(test_accs)
+    cm = confusion_mtxes[0]
     cm_sum = np.sum(cm, axis=1, keepdims=True)
     cm_perc = cm / cm_sum * 100
     annot = np.empty_like(cm).astype(str)
@@ -172,12 +173,12 @@ def visualize_test_acc(test_accs,confusion_mtxes,all_epochs):
     figsize =(20,8)
     fig = plt.figure(figsize=figsize)
     
-    plt.subplot(1, 2, 1)
-    plt.plot(all_epochs,test_accs, 'g')
-    plt.grid(True)
-    plt.title("Test accuracy")
+    #plt.subplot(1, 2, 1)
+    #plt.plot(all_epochs,test_accs, 'g')
+    #plt.grid(True)
+    #plt.title("Test accuracy")
     
-    plt.subplot(1, 2, 2)
+    plt.subplot(1, 2, 1)
     sns.heatmap(cm, annot=annot, fmt='', cmap="Blues")
     plt.title("Test accuracy - actual vs predicted")
    

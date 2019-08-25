@@ -35,14 +35,10 @@ def resume_training():
     best_acc = -9999
     best_acc_5 = -9999
     since = time.time()
-<<<<<<< HEAD
     best_epoch = 0
 
     ## confusion matrix
     confusion_mtxes = []
-=======
-
->>>>>>> 350ef52d788685f9e4b3c8e9485b6fc3089b2f56
     for epoch in (range(start_epoch+1, start_epoch+epochs+1)):
 
 
@@ -51,7 +47,6 @@ def resume_training():
         print('Epoch {}/{}'.format(epoch, start_epoch+epochs))
         print('-' * 10)
 
-<<<<<<< HEAD
         # train for one epoch
         (train_loss, train_acc1, train_acc5)  = train(trainloader, model, criterion, optimizer)
 
@@ -166,95 +161,6 @@ def evaluate(val_loader, model, criterion):
             preds += list(pred.cpu().numpy())
             confusion_mtx = sm.confusion_matrix(targets, preds)
 
-=======
-        ## train and evaluate the model, each epoch has two phases, train and val        
-        for phase in ['train','val']:
-            total_images = len(dataloaders_dict[phase])
-            if phase == 'train':
-                scheduler.step()
-                model.train(True)
-            else:
-                model.train(False)
-                model.eval()
-
-                
-            ## initialize the epoch parameters
-            if phase == "train":
-                running_loss_train = 0.0
-                running_corrects_train_prec1 = 0
-                running_corrects_train_prec5 = 0
-            else:
-                running_loss_val = 0.0
-                running_correct_val_prec1 = 0
-                running_correct_val_prec5 = 0
-
-            for data in tqdm(dataloaders_dict[phase]):
-                ## inputs and labels
-                inputs, labels = data
-
-                if is_cuda:
-                    inputs = inputs.cuda()
-                    labels = labels.cuda()
-                
-                optimizer.zero_grad()
-                outputs = model(inputs)
-                loss = criterion(outputs, labels)
-
-                ## No of samples
-                n_samples = inputs.size()[0]
-                (prec1, prec5) = accuracy(outputs.data.cpu(), labels.data.cpu(),topk=(1,5))
-
-                
-                # backward + optimize only if in training phase
-                if phase=='train':
-                    loss.backward()
-                    optimizer.step()
-                    running_loss_train += loss.data[0]
-                    running_corrects_train_prec1+=prec1
-                    running_corrects_train_prec5+=prec5
-                else:
-                    running_loss_val+=loss.data[0]
-                    running_correct_val_prec1 +=prec1
-                    running_correct_val_prec5 +=prec5
-
-
-            ## Compute Epoch loss, accuracy  
-            epoch_loss = running_loss_train / total_images if phase == "train"  else running_loss_val / total_images
-            epoch_acc_prec1 =  running_corrects_train_prec1 / total_images if phase == "train"  else running_correct_val_prec1 / total_images
-            epoch_acc_prec5 =  running_corrects_train_prec5/ total_images if phase == "train"  else running_correct_val_prec5 / total_images
-
-
-            logging.info('{}  Loss: {:.4f} Acc1: {:.4f},Acc5:{:.4f}'.format(phase, epoch_loss,epoch_acc_prec1.data.item(),epoch_acc_prec5.data.item()))
-
-            if phase == "train":
-                all_epoch_train_losses.append(epoch_loss)
-                all_epoch_train_accuracy_prec1.append(epoch_acc_prec1)
-                all_epoch_train_accuracy_prec5.append(epoch_acc_prec5)
-                train_loss = epoch_loss
-            else:
-                all_epoch_val_losses.append(epoch_loss)
-                all_epoch_val_accuracy_prec1.append(epoch_acc_prec1)
-                all_epoch_val_accuracy_prec5.append(epoch_acc_prec5)
-                val_loss = epoch_loss
-        
-            # deep copy the model
-            if phase == 'val' and epoch_acc_prec1 > best_acc:
-                best_acc = epoch_acc_prec1
-                best_acc_5 = epoch_acc_prec5
-                best_model_wts = model.state_dict()
-                save_checkpoint(model, model_path, epoch, train_loss, val_loss, all_epoch_train_losses,all_epoch_val_losses, all_epoch_train_accuracy_prec1,all_epoch_train_accuracy_prec5,all_epoch_val_accuracy_prec1, all_epoch_val_accuracy_prec5)
-
-        print()
-    
-    time_elapsed = time.time() - since
-    print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
-    print('Best val Acc: {:4f}, {:4f}'.format(best_acc,best_acc_5))
-
-    # load best model weights
-    model.load_state_dict(best_model_wts)
-
-    return model
->>>>>>> 350ef52d788685f9e4b3c8e9485b6fc3089b2f56
 
         print(' Validation:  Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
 
@@ -374,7 +280,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 set_logger ( os.path.join ( model_path, 'train.log' ))
 use_dropout = False
 
-(model, input_size) = nnet.initialize_model("resnet",num_classes=10,use_pretrained=True)
+(model, input_size) = nnet.initialize_model(model_name,num_classes=10,use_pretrained=True)
 
 
 # enable cudalabels
@@ -402,14 +308,13 @@ use_cuda = args.cuda
 
 ### Get data
 if torch.cuda.device_count()>1:
-    optimizer 	= torch.optim.SGD(model.module.fc.parameters(), lr = lr)
+    optimizer 	= torch.optim.SGD(model.module.fc.parameters(), lr = lr) if model_name=="resnet" else torch.optim.SGD(model.module.classifier.parameters(), lr = lr)
 else:
-    optimizer 	= torch.optim.SGD(model.fc.parameters(), lr = lr)
+    optimizer 	= torch.optim.SGD(model.fc.parameters(), lr = lr) if model_name=="resnet" else torch.optim.SGD(model.classifier.parameters(), lr = lr)
 
 scheduler 	= torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_step_size, gamma=0.1, last_epoch=-1)
 
 ## Train and evaluate
-is_train = True
 if (is_train == True):	
     logging.info ( "Starting training for {} epoch(s)".format ( epochs ) )
 

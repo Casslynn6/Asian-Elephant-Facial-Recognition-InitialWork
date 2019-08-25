@@ -47,15 +47,31 @@ def initialize_model(model_name, num_classes, use_pretrained = True):
     input_size = 0
 
 
-    """
-    Resnet50
-    """
-    model_ft = models.resnet50(pretrained = use_pretrained)
-    set_parameter_requires_grad(model_ft)
+ 
+  
+    if model_name=="resnet":
+        """
+        Resnet50
+        """
+        model_ft = models.resnet50(pretrained = use_pretrained)
+        set_parameter_requires_grad(model_ft)
 
-    num_ftrs = model_ft.fc.in_features
-    model_ft.fc = nn.Linear(num_ftrs, num_classes )
-    input_size = 224
+        num_ftrs = model_ft.fc.in_features
+        model_ft.fc = nn.Linear(num_ftrs, num_classes )
+        input_size = 224
 
-    return model_ft, input_size
+        return model_ft, input_size
+
+    elif model_name == "densenet":
+            
+        """ Densenet
+        """
+        model_ft = models.densenet121(pretrained=use_pretrained)
+        set_parameter_requires_grad(model_ft)
+
+        num_ftrs = model_ft.classifier.in_features
+        model_ft.classifier = nn.Linear(num_ftrs, num_classes)
+        input_size = 224
+
+        return model_ft, input_size
 

@@ -117,7 +117,7 @@ def fetch_dataloader(input_size,  batch_size, use_sampler = True, use_cuda=True)
         val_loader = torch.utils.data.DataLoader(subset["val"], batch_size=batch_size, shuffle=False, sampler=None, **kwargs)
     else:
         train_loader = torch.utils.data.DataLoader(subset["train"], batch_size=batch_size, sampler=None, **kwargs)
-        val_loader = torch.utils.data.DataLoader(subset["train"], batch_size=batch_size, shuffle=False, sampler=None, **kwargs)
+        val_loader = torch.utils.data.DataLoader(subset["val"], batch_size=batch_size, shuffle=False, sampler=None, **kwargs)
 
     print('Dataset: %d training samples & %d val samples\n' % (
     len(train_loader.dataset), len(val_loader.dataset)))
