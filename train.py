@@ -17,6 +17,7 @@ from glob import glob
 import torch.nn as nn
 from torch.backends import cudnn
 from torch.optim.lr_scheduler import StepLR
+from torch.optim import lr_scheduler
 
 import data_loaders
 import networks as nnet
@@ -30,8 +31,11 @@ from torch.utils.model_zoo import tqdm
 import sklearn.metrics as sm
 
 import pandas as pd
+
 def resume_training():
     start_epoch, all_epoch_train_losses, all_epoch_val_losses,all_epoch_train_accuracy_prec1, all_epoch_train_accuracy_prec5,all_epoch_val_accuracy_prec1, all_epoch_val_accuracy_prec5 = load_last_model(model,model_path)
+
+
     best_acc = -9999
     best_acc_5 = -9999
     since = time.time()
@@ -41,17 +45,15 @@ def resume_training():
     confusion_mtxes = []
     for epoch in (range(start_epoch+1, start_epoch+epochs+1)):
 
-
-        adjust_learning_rate(optimizer, epoch,lr)
-        
         print('Epoch {}/{}'.format(epoch, start_epoch+epochs))
         print('-' * 10)
 
         # train for one epoch
-        (train_loss, train_acc1, train_acc5)  = train(trainloader, model, criterion, optimizer)
+        (train_loss, train_acc1, train_acc5)  = train(train_loader, model, criterion, optimizer,exp_lr_scheduler)
 
         # evaluate on validation set
-        (val_loss, val_acc1, val_acc5, val_confusion_matrix)   = evaluate(valloader, model, criterion)
+        (val_loss, val_acc1, val_acc5, val_confusion_matrix)   = evaluate(val_loader, model, criterion)
+
 
         all_epoch_train_losses.append(train_loss)
         all_epoch_train_accuracy_prec1.append(train_acc1)
@@ -73,8 +75,12 @@ def resume_training():
             save_checkpoint(model, model_path, epoch, train_loss, val_loss, all_epoch_train_losses,all_epoch_val_losses, all_epoch_train_accuracy_prec1,all_epoch_train_accuracy_prec5,all_epoch_val_accuracy_prec1, all_epoch_val_accuracy_prec5)
 
         print("Train and validation complete")
+        print('{} Train Loss: {:.4f} Train Acc: {:.4f}'.format(epoch,
+                train_loss, train_acc1))
+        print('{} Val Loss: {:.4f} Val Acc: {:.4f}'.format(epoch,
+                val_loss, val_acc1))
 
-    
+
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
     print('Best val Acc: {:4f}, {:4f}'.format(best_acc,best_acc_5))
@@ -84,12 +90,12 @@ def resume_training():
     model.load_state_dict(best_model_wts)
 
     visualize_save_plots(all_epoch_train_losses,all_epoch_val_losses, all_epoch_train_accuracy_prec1,
-    all_epoch_val_accuracy_prec1,confusion_mtxes)
+    all_epoch_val_accuracy_prec1,confusion_mtxes,classes)
 
     return model
 
 
-def train(train_loader, model, criterion, optimizer):
+def train(train_loader, model, criterion, optimizer,scheduler):
     total_images = len(train_loader)
 
     ## set model to train
@@ -102,25 +108,31 @@ def train(train_loader, model, criterion, optimizer):
 
     
     for (inputs, labels) in tqdm(train_loader):
-        if is_cuda:
+        if use_cuda:
             inputs = inputs.cuda()
             labels = labels.cuda()
 
+        ## zero the parameter gradients
         optimizer.zero_grad()
+
+        ## forward
         outputs = model(inputs)
+
         loss = criterion(outputs, labels)
 
-        num_samples_batch = inputs.size(0)
+        batch_size = inputs.size(0)
         (acc1, acc5) = accuracy(outputs.data.cpu(), labels.data.cpu(),topk = (1,5))
 
+        ## propagate loss backward
         loss.backward()
         optimizer.step()
+        scheduler.step()
 
-        losses.update(loss.item(),num_samples_batch)
-        top1.update(acc1[0], num_samples_batch)
-        top5.update(acc5[0], num_samples_batch)
+        ## statistics
+        losses.update(loss.item(),batch_size)
+        top1.update(acc1[0], batch_size)
+        top5.update(acc5[0], batch_size)
 
-    print(' Train:  Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
     return (losses.avg, top1.avg, top5.avg)
 
 
@@ -140,7 +152,7 @@ def evaluate(val_loader, model, criterion):
 
     with torch.no_grad():
         for  (images, target) in tqdm(val_loader):
-            if is_cuda:
+            if use_cuda:
                 images = images.cuda()
                 target = target.cuda()
 
@@ -160,9 +172,6 @@ def evaluate(val_loader, model, criterion):
             targets += list(target.cpu().numpy())
             preds += list(pred.cpu().numpy())
             confusion_mtx = sm.confusion_matrix(targets, preds)
-
-
-        print(' Validation:  Acc@1 {top1.avg:.3f} Acc@5 {top5.avg:.3f}'.format(top1=top1, top5=top5))
 
     return (losses.avg, top1.avg, top5.avg,confusion_mtx)
 
@@ -189,8 +198,6 @@ def accuracy(output, target, topk=(1,) ):
     return res
 
 
-        
-
 #================================================================================================================================
 # Parse arguments
 # 
@@ -211,7 +218,7 @@ parser.add_argument("--no-cuda",action='store_true', default=True, help="enable 
 parser.add_argument('--seed', type=int, default=1, metavar='S',help='random seed (default: 1)')
 parser.add_argument('--log-interval', type=int, default=100, metavar='N', help='how many batches to wait before logging training status')
 parser.add_argument('--device_id', type=int, default=0, help='gpu device id (default: 1)')
-parser.add_argument('--lr', type=float, default=0.000001,
+parser.add_argument('--lr', type=float, default=0.0001,
                     help='learning rate for the adam optimizer')
 parser.add_argument('--data_path', default='None',
                     help='data directory for train, val, and test. the root dir is in data/')
@@ -221,12 +228,8 @@ parser.add_argument('--model_path', default='None',
                     help='directory to save models and losses. root dir is in models/')
 parser.add_argument('--epoch_save_interval', type=int, default=5,
                     help='model that would be saved after every given interval e.g.,  250')
-parser.add_argument('--is_train', type=str2bool, nargs='?', const=True,
-                    help='boolean variable indicating if we are training the model. for testing just disable this flag')
 parser.add_argument('--model_name', default='None',
                     help='trained model name e.g., used during evaluation stage')
-parser.add_argument('--eval_set', default='test',
-                    help='which set to evaluate the model when is_train=False')
 
 parser.add_argument('--use_sampler', type=str2bool, nargs='?', const=True,
                     help='boolean variable indicating if we are using sampler for training')
@@ -239,11 +242,17 @@ data_path = args.data_path
 output_path 		= args.output_path
 model_path 		= args.model_path
 epoch_save_interval 	= args.epoch_save_interval
-is_train 	 	= args.is_train
-eval_set 		= args.eval_set
 model_name 		= args.model_name
 use_sampler = args.use_sampler
 
+
+## visualize the distribution of classes in train and validation loader
+classes = ["Beco", "Connie", "Hank",  
+            "Jati",  "Kamala",  "Maharani",  "MyThai", "Pheobe" ,"Rudy", "Sabu", 
+            "Schottzie", "Spike", 
+            "Sunny", "Swarna"]
+
+num_classes = len(classes)
 
 def adjust_learning_rate(optimizer, epoch,lr):
     lr = lr * (0.1 ** (epoch // 30))
@@ -261,7 +270,7 @@ def create_dir(path, text):
 
 ## Create model and output directory
 create_dir(model_path,"model directory exists: {}")
-create_dir(output_path + eval_set, "output directory exists: {}")
+create_dir(output_path + "_train", "output directory exists: {}")
 
 
 
@@ -280,8 +289,7 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 set_logger ( os.path.join ( model_path, 'train.log' ))
 use_dropout = False
 
-(model, input_size) = nnet.initialize_model(model_name,num_classes=10,use_pretrained=True)
-
+(model, input_size) = nnet.initialize_model(model_name,num_classes=num_classes,use_pretrained=True)
 
 # enable cudalabels
 if (torch.cuda.is_available()):
@@ -289,96 +297,55 @@ if (torch.cuda.is_available()):
     if torch.cuda.device_count() > 1:
         print("Let's use", torch.cuda.device_count(), "GPUs!")
         model = nn.DataParallel(model)
-
     model = model.to(device)
 else:
 	is_cuda = False
 
 logging.info("Initialized the model")
-
-
-
-## Initialize hyperparameters
-momentum 	= 0.9
-lr_step_size 	= epochs
-criterion  	= nnet.weighted_loss_fn if not use_sampler else torch.nn.CrossEntropyLoss().cuda() ## cross entropy loss
-
 use_cuda = args.cuda
+
 ## SGD optimizer, can try Adam optimizer
-
 ### Get data
+# Only parameters of final layer are being optimized as
 if torch.cuda.device_count()>1:
-    optimizer 	= torch.optim.SGD(model.module.fc.parameters(), lr = lr) if model_name=="resnet" else torch.optim.SGD(model.module.classifier.parameters(), lr = lr)
+    optimizer 	= torch.optim.SGD(model.module.fc.parameters(), lr=lr, momentum=0.9) if model_name=="resnet" else torch.optim.SGD(model.module.classifier.parameters(), lr = lr)
 else:
-    optimizer 	= torch.optim.SGD(model.fc.parameters(), lr = lr) if model_name=="resnet" else torch.optim.SGD(model.classifier.parameters(), lr = lr)
+    optimizer 	= torch.optim.SGD(model.fc.parameters(), lr=lr, momentum=0.9) if model_name=="resnet" else torch.optim.SGD(model.classifier.parameters(), lr = lr)
 
-scheduler 	= torch.optim.lr_scheduler.StepLR(optimizer, step_size=lr_step_size, gamma=0.1, last_epoch=-1)
 
-## Train and evaluate
-if (is_train == True):	
-    logging.info ( "Starting training for {} epoch(s)".format ( epochs ) )
+# Decay LR by a factor of 0.1 every 7 epochs
+exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
-    trainloader, valloader 	= data_loaders.fetch_dataloader(input_size = input_size, batch_size = batch_size, use_sampler = use_sampler)
-    logging.info("Finished fetching dataloader for train and val: {}, {}".format(len(trainloader),len(valloader)))
-    resume_training()	
+### Dataloaders
+train_loader, val_loader, train_weights = data_loaders.fetch_dataloader(data_path,input_size,batch_size, use_sampler, use_cuda)
+print(train_weights, len(train_weights))
+train_weights = train_weights.type(torch.FloatTensor)
+train_weights = torch.FloatTensor(train_weights) if not use_cuda else torch.FloatTensor(train_weights).cuda()
+
+## Initialize the loss function
+if not use_sampler:
+    if use_cuda:
+        criterion  = torch.nn.CrossEntropyLoss(weight=train_weights).cuda()
+    else:
+        criterion  = torch.nn.CrossEntropyLoss(weight=train_weights)
 else:
-    testloader = data_loaders.fetch_test_dataloader(input_size = input_size,batch_size = batch_size)
-     
-    ## Test model
-    all_models = glob(model_path + '/*.pth')
-    all_epochs = []
-    test_accs = []
-    confusion_mtxes= []
+    if use_cuda:
+        criterion  = torch.nn.CrossEntropyLoss().cuda()
+    else:
+        criterion  = torch.nn.CrossEntropyLoss().cuda()
 
-    for m in all_models:
-        model_epoch_num = m.split("_")[-7]
-        
 
-        ## model name
-        m_name = os.path.basename(m)
+## visualize some images:
+#mages, labels = next(iter(train_loader))
+#data_loaders.make_grid(images,labels,classes)
 
-        model_file_name = model_path +"/" + m_name
-        model_file = Path(model_file_name)
+#data_loaders.visualize_distribution_of_dataset(train_loader, val_loader,classes)
+## Start training
+logging.info("Finished fetching dataloader for train and val: {}, {}".format(len(train_loader),len(val_loader)))
 
-        is_model_file = model_file.exists()
-        
-        if is_model_file==0:
-            os.error("Error loading model file, as it doesnt exists" + model_file_name)
-        else:
-            print("Loading model {} ".format(model_file_name))
 
-            model.load_state_dict(torch.load(model_file_name))
-        
-        ## evaluating the best model
-        print("Evaluating the model.. {}".format(eval_set))
+resume_training()	
 
-        with torch.no_grad():
-            correct = 0
-            targets, preds = [], []
 
-            for  (images, target) in tqdm(testloader):
-                if is_cuda:
-                    images = images.cuda()
-                    target = target.cuda()
 
-                # compute output
-                outputs = model(images)
-                loss = criterion(outputs, target)
 
-                # measure accuracy and record loss
-                pred = outputs.max(1, keepdim=True)[1] ## get index of max probability
-                correct += pred.eq(target.view_as(pred)).sum().item()
-                
-                targets += list(target.cpu().numpy())
-                preds += list(pred.cpu().numpy())
-
-                
-            test_acc = 100. * correct / len(testloader.dataset)
-            confusion_mtx = sm.confusion_matrix(targets, preds)
-
-        test_accs.append(test_acc)
-        confusion_mtxes.append(confusion_mtx)
-        all_epochs.append(int(model_epoch_num))
-
-    visualize_test_acc(test_accs,confusion_mtxes,all_epochs)
-    

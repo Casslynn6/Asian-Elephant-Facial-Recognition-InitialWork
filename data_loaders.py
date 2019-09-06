@@ -23,8 +23,7 @@ from sklearn.metrics import accuracy_score
 
 from tqdm import tqdm
 
-classes = ('Beco', 'Connie', 'Hank', 'Jati',
-           'MyThai', 'Pheobe', 'Rudy', 'Sabu', 'Schottzie', 'Sunny')
+
 
 
 #### 
@@ -60,7 +59,18 @@ class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
         # weight for each sample
         weights = [1.0 / label_to_count[self._get_label(dataset, idx)]
                    for idx in self.indices]
+
+        total_count = len(dataset)
+        self.label_weights = [1 - (1.0 * v/total_count) for k, v in label_to_count.items()]
+        def normalize(probs):
+            prob_factor = 1 / sum(probs)
+            return [prob_factor * p for p in probs]
+
+        self.label_weights = torch.DoubleTensor(normalize(self.label_weights))
+        
+        
         self.weights = torch.DoubleTensor(weights)
+
 
     def _get_label(self, dataset, idx):
         dataset_type = type(dataset)
@@ -82,7 +92,7 @@ class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
 """
 Fetch dataloader - train and validation
 """
-def fetch_dataloader(input_size,  batch_size, use_sampler = True, use_cuda=True):
+def fetch_dataloader(data_path, input_size,  batch_size, use_sampler = True, use_cuda=True):
     normalize = torchvision.transforms.Normalize(
     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
@@ -106,26 +116,29 @@ def fetch_dataloader(input_size,  batch_size, use_sampler = True, use_cuda=True)
     }
 
     subset = {
-            "train": datasets.ImageFolder(root='data_sep_mov/train',transform=data_transforms["train"]),
-            "val": datasets.ImageFolder(root = "data_sep_mov/val", transform = data_transforms["val"])
+            "train": datasets.ImageFolder(root=os.path.join(data_path,"train"),transform=data_transforms["train"]),
+            "val": datasets.ImageFolder(root = os.path.join(data_path,"val"), transform = data_transforms["val"])
     }
 
-    
+    train_weights = None
+    train_sampler = ImbalancedDatasetSampler(subset["train"])
+    train_weights = train_sampler.label_weights
+
+
     ## Subset   
     if use_sampler == True:
         train_loader = torch.utils.data.DataLoader(subset["train"], batch_size=batch_size, sampler=ImbalancedDatasetSampler(subset["train"]), **kwargs)
         val_loader = torch.utils.data.DataLoader(subset["val"], batch_size=batch_size, shuffle=False, sampler=None, **kwargs)
     else:
+        
         train_loader = torch.utils.data.DataLoader(subset["train"], batch_size=batch_size, sampler=None, **kwargs)
         val_loader = torch.utils.data.DataLoader(subset["val"], batch_size=batch_size, shuffle=False, sampler=None, **kwargs)
 
     print('Dataset: %d training samples & %d val samples\n' % (
     len(train_loader.dataset), len(val_loader.dataset)))
     
-
-    ## Save distribution of data
-    visualize_distribution_of_dataset(train_loader,val_loader)
-    return train_loader, val_loader
+    
+    return train_loader, val_loader, train_weights
 
 
 """
@@ -149,32 +162,35 @@ def fetch_test_dataloader( input_size, batch_size):
 Test images
 """
 def imshow(img):
+    plt.figure(figsize=(20,10))
     img = img/2 + 0.5 ## unnormalize
     npimg = img.numpy()
-    plt.imshow(np.transpose(npimg,(1,2,0)))
-    plt.show()
-
+    plt.imsave("images/examples_of_trainset_images.png", np.transpose(npimg,(1,2,0)))
+    
 def make_grid(images,labels, classes):
-    imshow(torchvision.utils.make_grid(images))
-    print(' '.join('%5s' % classes[labels[j]] for j in range(len(labels))))
+      imshow(torchvision.utils.make_grid(images))
+    #print(' '.join('%5s' % classes[labels[j]] for j in range(len(labels))))
 
 
 
-def visualize_distribution_of_dataset(train_loader, val_loader):
+def visualize_distribution_of_dataset(train_loader, val_loader,classes):
+
     print('Distribution of classes in trainset dataset:')
-    fig, ax = plt.subplots(figsize=(10,4))
+    fig, ax = plt.subplots(figsize=(20,10))
+    
     labels = [label for _, label in train_loader.dataset.imgs]
+    
     classe_labels, counts = np.unique(labels, return_counts=True)
     ax.bar([classes[i] for i in (list(classe_labels))], counts)
     ax.set_xticks(classe_labels)
-    plt.savefig("distribution_train_set.png")
+    plt.savefig("images/distribution_train_set.png")
 
-    fig, ax = plt.subplots(figsize=(10,4))
+    fig, ax = plt.subplots(figsize=(20,10))
     labels = [label for _, label in val_loader.dataset.imgs]
     classe_labels, counts = np.unique(labels, return_counts=True)
     ax.bar([classes[i] for i in (list(classe_labels))], counts)
     ax.set_xticks(classe_labels)
-    plt.savefig("distribution_val_set.png")
+    plt.savefig("images/distribution_val_set.png")
 
 
 def visualize_distribution_of_test_dataset(test_loader):

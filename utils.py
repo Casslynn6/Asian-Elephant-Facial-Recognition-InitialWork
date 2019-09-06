@@ -102,9 +102,8 @@ def load_last_model(model, model_path):
 
     
 
-def visualize_save_plots(train_loss, val_loss, train_acc, val_acc, confusion_matrixes):
-    labels = ('Beco', 'Connie', 'Hank', 'Jati',
-           'MyThai', 'Pheobe', 'Rudy', 'Sabu', 'Schottzie', 'Sunny')
+def visualize_save_plots(train_loss, val_loss, train_acc, val_acc, confusion_matrixes,labels):
+    
 
     ## loss plot
     ## accuracy plot
@@ -144,7 +143,7 @@ def visualize_save_plots(train_loss, val_loss, train_acc, val_acc, confusion_mat
     plt.subplot(2, 2, 3)
     sns.heatmap(cm, annot=annot, fmt='', cmap="Blues")
     plt.title("Val accuracy - actual vs predicted")
-    plt.savefig("all_plots.png")
+    plt.savefig("images/all_plots.png")
 
 
 def visualize_test_acc(test_accs,confusion_mtxes,all_epochs):
