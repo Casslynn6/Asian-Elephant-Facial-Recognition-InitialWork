@@ -17,4 +17,4 @@ python3 train.py --batch_size=256 --epochs=2000 --data_path='data/dataset/top5' 
 
 
 ## Example images:
-![Images](baseline-models/images/elephant_images.png "Elephant Images")
+![Images](/baseline-models/images/elephant_images.png "Elephant Images")
