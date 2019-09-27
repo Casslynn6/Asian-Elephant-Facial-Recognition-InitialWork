@@ -1,0 +1,38 @@
+##  logger options
+
+log_iter: 10                  # How often do you want to log the training stats
+log_folder: "./checkpoints"
+test_freq: 500
+record_freq:500
+
+## optimization options
+max_iterations: 10000
+batch_size: 128
+batch_size_source: 128
+learning_rate: 0.1
+momentum: 0.9
+weight_decay: 0.0001
+schedule: [5000, 7500, 9000]
+gamma: 0.1
+
+## meta optimization options
+meta-train-lr: 0.001
+num-updates-for-gradient: 1
+meta-sgd: False
+second-order-grad: False
+first-meta-update: False
+
+
+## architecture
+arch: "resnet34"
+pretrained: True
+
+
+## Data Paths
+
+## datapath
+# datapath source
+
+ 
+data_root: ./data/original/     # dataset folder location
+
