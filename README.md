@@ -14,3 +14,7 @@ Experiments:
 
 ## Example to run an experiment:
 python3 train.py --batch_size=256 --epochs=2000 --data_path='data/dataset/top5' --output_path='output/output_resnet_sampler_top5_lr_0.0001' --model_path='models/model_resnet_lr_0.0001_sampler_top5' --model_name='resnet' --use_sampler=True --use_top5=True 
+
+
+## Example images:
+![Images](/baseline-models/images/elephant_images.png "Elephant Images")
