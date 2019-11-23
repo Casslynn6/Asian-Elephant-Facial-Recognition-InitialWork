@@ -1,13 +1,12 @@
-# Asian elephant facial recognition
+# Asian Elephant Identification Project
 
 Repository currently contains:
 
 <ul> 
-<li>baseline models - 
+<li>Baseline models - 
 <ul> <li> Binary classification - model to classify whether image contains or doesnt contain an elephant;</li>
 <li> Classification models - using pretrained resnet and desnet models that are pretrained on imagenet </li>
-</ul>
-<li>
+</ul></li>
 <li> Siamese models - using contrastive loss and triplet loss </li>
 <li> MetaFGNet model - code adopted from - https://github.com/YBZh/MetaFGNet/tree/master/MetaFGNet_with_Sample_Selection </li>
 </ul>
@@ -28,3 +27,9 @@ python3 train.py --batch_size=256 --epochs=2000 --data_path='data/dataset/top5' 
 
 ## Example images:
 ![Images](/baseline-models/images/elephant_images.png "Elephant Images")
+
+## References
+<ul>
+<li> Pytorch Tutorials - https://github.com/pytorch/tutorials </li>
+<li> Triplet Loss -   https://medium.com/@crimy/one-shot-learning-siamese-networks-and-triplet-loss-with-keras-2885ed022352 </li>
+</ul>

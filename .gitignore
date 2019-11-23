@@ -25,5 +25,6 @@ MetaFGNet/checkpoints/
 */**/__pycache/
 */**/*.pth
 MetaFGNet/.ipynb_checkpoints/
+.vscode/
 
 
