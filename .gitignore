@@ -14,4 +14,16 @@ imbalanced_data_sampler.py
 notebooks/.ipynb_checkpoints/*.ipynb
 notebooks/.ipynb_checkpoints/Binary Classification-checkpoint.ipynb
 log.txt
-.vscode/settings.json
+.vscode/settings.jsoni
+SiemeseNetwork/.ipynb_checkpoints/
+SiemeseNetwork/.ipynb_checkpoints/Feature Similarity with Siemese Networks-checkpoint.ipynb
+baseline-models/checkpoints/resnet34/
+SiemeseNetwork/.ipynb_checkpoints/Feature Similarity with Siemese Network - Triplet Loss-checkpoint.ipynb
+MetaFGNet/checkpoints/
+.idea/
+*/**/.ipynb_checkpints/
+*/**/__pycache/
+*/**/*.pth
+MetaFGNet/.ipynb_checkpoints/
+
+

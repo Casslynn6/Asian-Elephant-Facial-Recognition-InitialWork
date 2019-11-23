@@ -1,31 +1,39 @@
 ##  logger options
 
 log_iter: 10                  # How often do you want to log the training stats
-log_folder: "./checkpoints"
-test_freq: 500
-record_freq:500
+log_folder: "./checkpoints/densenet"
+test_freq: 10
+record_freq: 10
+print_freq: 1
+workers: 4
+
 
 ## optimization options
-max_iterations: 10000
-batch_size: 128
-batch_size_source: 128
-learning_rate: 0.1
+max_iterations: 2000
+batch_size: 64
+batch_size_source: 64
+learning_rate: 0.001
 momentum: 0.9
-weight_decay: 0.0001
-schedule: [5000, 7500, 9000]
+weight_decay: 1e-5
+schedule: [20,40,60,80,100]
 gamma: 0.1
+lr: 0.1
 
 ## meta optimization options
-meta-train-lr: 0.001
-num-updates-for-gradient: 1
-meta-sgd: False
-second-order-grad: False
-first-meta-update: False
-
-
+meta_train_lr: 0.001
+num_updates_for_gradient: 1
+meta_sgd: False
+second_order_grad: False
+first_meta_update: False
+start_epoch: 0
+resume: False
+test_only: False
+pretrained: False
+pretrained_checkpoint: ''
+epochs: 100
 ## architecture
-arch: "resnet34"
-pretrained: True
+arch: "densenet121"
+
 
 
 ## Data Paths
@@ -35,4 +43,14 @@ pretrained: True
 
  
 data_root: ./data/original/     # dataset folder location
+data_path: "/share/jproject/fg508/mchivuku/datasets/asian_elephant/models/metafgnet/target"
+data_path_source: "/share/jproject/fg508/mchivuku/datasets/asian_elephant/models/metafgnet/source"
+auxiliary_dataset: "/share/jproject/fg508/mchivuku/datasets/asian_elephant/models/metafgnet/source"
+dataset: "/share/jproject/fg508/mchivuku/datasets/asian_elephant/models/metafgnet/target"
+testdataset: "/share/jproject/fg508/mchivuku/datasets/asian_elephant/models/metafgnet/test/"
+num_classes_t: 14
+num_classes_s: 14
+
+ 
+
 

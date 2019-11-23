@@ -5,7 +5,7 @@ from torchvision import models
 import numpy as numpy
 
 
-
+ 
 """
 Freeze all parameters of the model
 """
@@ -19,8 +19,7 @@ def initialize_model(model_name, num_classes, use_pretrained = True):
     model_ft = None
     input_size = 0
 
-  
-    if model_name=="resnet":
+    if model_name=="resnet50":
         """
         Resnet50
         """
@@ -32,6 +31,29 @@ def initialize_model(model_name, num_classes, use_pretrained = True):
         input_size = 224
 
         return model_ft, input_size
+    elif model_name == "resnet34":
+        """
+        Resnet34
+        """
+        model_ft  = models.resnet34(pretrained = use_pretrained)
+        set_parameter_requires_grad(model_ft)
+
+        num_ftrs =model_ft.fc.in_features
+        model_ft.fc = nn.Linear(num_ftrs,num_classes)
+
+        input_size = 224
+
+    elif model_name =="resnet101":
+        """
+        Resnet101
+        """
+        model_ft = models.resnet101(pretrained = use_pretrained)
+        set_parameter_requires_grad(model_ft)
+        
+        num_ftrs = model_ft.fc.in_features
+        model_ft.fc = nn.Linear(num_ftrs, num_classes)
+
+        input_size = 224
 
     elif model_name == "densenet":
             
@@ -44,5 +66,5 @@ def initialize_model(model_name, num_classes, use_pretrained = True):
         model_ft.classifier = nn.Linear(num_ftrs, num_classes)
         input_size = 224
 
-        return model_ft, input_size
+    return model_ft, input_size
 

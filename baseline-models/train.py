@@ -27,7 +27,7 @@ from torch.autograd import Variable
 from running_average import RunningAverage
 from utils import set_logger, save_dict_to_json, save_checkpoint, load_last_model,visualize_save_plots,visualize_test_acc
 from torch.utils.model_zoo import tqdm
-
+from opts import opts  # The options for the project
 import sklearn.metrics as sm
 
 import pandas as pd
@@ -43,15 +43,20 @@ def resume_training():
 
     ## confusion matrix
     confusion_mtxes = []
-    for epoch in (range(start_epoch+1, start_epoch+epochs+1)):
-
-        print('Epoch {}/{}'.format(epoch, start_epoch+epochs))
+    
+    for epoch in range(start_epoch+1, epochs):
+        
+        ## Adjust learning rate according to schedule
+        adjust_learning_rate(optimizer, epoch,lr)
+        print('Begin Training Epoch {}/{}'.format(epoch, epochs))
         print('-' * 10)
 
         # train for one epoch
         (train_loss, train_acc1, train_acc5)  = train(train_loader, model, criterion, optimizer,exp_lr_scheduler)
 
+
         # evaluate on validation set
+        print("Begin validation @ Epoch {}/{}".format(epoch, epochs))
         (val_loss, val_acc1, val_acc5, val_confusion_matrix)   = evaluate(val_loader, model, criterion)
 
 
@@ -72,7 +77,7 @@ def resume_training():
             best_acc_5 = val_acc5
             best_model_wts = model.state_dict()
             best_epoch = epoch
-            save_checkpoint(model, model_path, epoch, train_loss, val_loss, all_epoch_train_losses,all_epoch_val_losses, all_epoch_train_accuracy_prec1,all_epoch_train_accuracy_prec5,all_epoch_val_accuracy_prec1, all_epoch_val_accuracy_prec5)
+            save_checkpoint(model, model_path, model_name, epoch, train_loss, val_loss, all_epoch_train_losses,all_epoch_val_losses, all_epoch_train_accuracy_prec1,all_epoch_train_accuracy_prec5,all_epoch_val_accuracy_prec1, all_epoch_val_accuracy_prec5)
 
         print("Train and validation complete")
         print('{} Train Loss: {:.4f} Train Acc: {:.4f}'.format(epoch,
@@ -83,18 +88,13 @@ def resume_training():
 
     time_elapsed = time.time() - since
     print('Training complete in {:.0f}m {:.0f}s'.format(time_elapsed // 60, time_elapsed % 60))
-    print('Best val Acc: {:4f}, {:4f}'.format(best_acc,best_acc_5))
-    print("Best epoch,", best_epoch)
+    print('Best val (top5) Acc: {:4f}, {:4f}'.format(best_acc,best_acc_5))
+    print("Best epoch: ", best_epoch)
     
     # load best model weights
     model.load_state_dict(best_model_wts)
-    name = f"{model_name}_imbalanced_sampler_" if use_sampler else f"{model_name}_weighted_loss_"
-    if top5:
-        name = name + "_top5_"
-
-    visualize_save_plots(all_epoch_train_losses,all_epoch_val_losses, 
-    all_epoch_train_accuracy_prec1,
-    all_epoch_val_accuracy_prec1,confusion_mtxes,classes,name)
+    visualize_save_plots(all_epoch_train_losses,all_epoch_val_losses, all_epoch_train_accuracy_prec1, 
+    all_epoch_val_accuracy_prec1,confusion_mtxes,classes,os.path.join(output_path,"final_plots.png"))
 
     return model
 
@@ -127,6 +127,7 @@ def train(train_loader, model, criterion, optimizer,scheduler):
         batch_size = inputs.size(0)
         (acc1, acc5) = accuracy(outputs.data.cpu(), labels.data.cpu(),topk = (1,5))
 
+        
         ## propagate loss backward
         loss.backward()
         optimizer.step()
@@ -201,48 +202,16 @@ def accuracy(output, target, topk=(1,) ):
     
     return res
 
+def adjust_learning_rate(optimizer, epoch,lr):
+    lr = lr * (0.1 ** (epoch // 30))
+    for param_group in optimizer.param_groups:
+        param_group['lr'] = lr
 
 #================================================================================================================================
 # Parse arguments
 # 
 # 
-def str2bool(s):
-    if s.lower() in ('yes','true','t','y',1):
-        return True
-    elif s.lower() in ('no','false','f','n',0):
-        return False
-    else:
-        raise argparse.ArgumentTypeError("Boolean value expected")
-
-
-parser = argparse.ArgumentParser(description = "Asian Elephant Facial Recognition Model")
-parser.add_argument('--batch_size', type=int, default = 1, metavar='N', help = "input batch size for training (default : 1)")
-parser.add_argument("--epochs",type=int, default = 2000, metavar = 'N', help="number of epochs to train the model (default: 2000)") 
-parser.add_argument("--no-cuda",action='store_true', default=True, help="enable CUDA training (default: True)")
-parser.add_argument('--seed', type=int, default=1, metavar='S',help='random seed (default: 1)')
-parser.add_argument('--log-interval', type=int, default=100, metavar='N', help='how many batches to wait before logging training status')
-parser.add_argument('--device_id', type=int, default=0, help='gpu device id (default: 1)')
-parser.add_argument('--lr', type=float, default=0.0001,
-                    help='learning rate for the adam optimizer')
-parser.add_argument('--data_path', default='None',
-                    help='data directory for train, val, and test. the root dir is in data/')
-parser.add_argument('--output_path', default='None',
-                    help='directory to save learned representation')
-parser.add_argument('--model_path', default='None',
-                    help='directory to save models and losses. root dir is in models/')
-parser.add_argument('--epoch_save_interval', type=int, default=5,
-                    help='model that would be saved after every given interval e.g.,  250')
-parser.add_argument('--model_name', default='None',
-                    help='trained model name e.g., used during evaluation stage')
-
-parser.add_argument('--use_sampler', type=str2bool, nargs='?', const=True,
-                    help='boolean variable indicating if we are using sampler for training')
-
-parser.add_argument('--use_top5', type=str2bool, nargs='?', const=True,
-                    help='boolean variable indicating if we are using top5 dataset')
-                
-
-args = parser.parse_args()
+args = opts()
 batch_size = args.batch_size
 epochs = args.epochs
 lr = args.lr
@@ -252,24 +221,13 @@ model_path 		= args.model_path
 epoch_save_interval 	= args.epoch_save_interval
 model_name 		= args.model_name
 use_sampler = args.use_sampler
-top5 = args.use_top5
 
-## visualize the distribution of classes in train and validation loader
-if not top5:
-    classes = ["Beco", "Connie", "Hank",  
-                "Jati",  "Kamala",  "Maharani",  "MyThai", "Pheobe" ,"Rudy", "Sabu", 
-                "Schottzie", "Spike", 
-                "Sunny", "Swarna"]
-else:
-    classes = ["Beco" , "Connie" , "Hank" , "Pheobe",  "Rudy",  "Swarna"]
+file_name_classes = args.csv_classes
+with open(file_name_classes,'r') as f:
+    classes = f.readlines()
 
 num_classes = len(classes)
 
-def adjust_learning_rate(optimizer, epoch,lr):
-    lr = lr * (0.1 ** (epoch // 30))
-    for param_group in optimizer.param_groups:
-        param_group['lr'] = lr
-        
 ## Create model directory if it doesnt exists, for saving the trained models
 def create_dir(path, text):
     directory = Path(path)
@@ -281,16 +239,15 @@ def create_dir(path, text):
 
 ## Create model and output directory
 create_dir(model_path,"model directory exists: {}")
-create_dir(output_path + "_train", "output directory exists: {}")
-
+create_dir(output_path + "/train", "output directory exists: {}")
 
 
 ### initialize global variables
-args.cuda = True
+use_cuda = args.use_cuda
 device_id = args.device_id
 torch.manual_seed(args.seed)
 
-if args.cuda:
+if use_cuda:
     torch.cuda.manual_seed(args.seed)
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -299,10 +256,9 @@ device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
  ## enable logging
 set_logger ( os.path.join ( model_path, 'train.log' ))
 use_dropout = False
-
 (model, input_size) = nnet.initialize_model(model_name,num_classes=num_classes,use_pretrained=True)
 
-# enable cudalabels
+# enable cuda labels
 if (torch.cuda.is_available()):
     is_cuda = True
     if torch.cuda.device_count() > 1:
@@ -313,48 +269,31 @@ else:
 	is_cuda = False
 
 logging.info("Initialized the model")
-use_cuda = args.cuda
 
+## Optimizer
 ## SGD optimizer, can try Adam optimizer
 ### Get data
 # Only parameters of final layer are being optimized as
 if torch.cuda.device_count()>1:
-    optimizer 	= torch.optim.SGD(model.module.fc.parameters(), lr=lr, momentum=0.9) if model_name=="resnet" else torch.optim.SGD(model.module.classifier.parameters(), lr = lr)
+    optimizer 	= torch.optim.SGD(model.module.fc.parameters(), lr=lr,weight_decay=1e-5) 
 else:
-    optimizer 	= torch.optim.SGD(model.fc.parameters(), lr=lr, momentum=0.9) if model_name=="resnet" else torch.optim.SGD(model.classifier.parameters(), lr = lr)
+    optimizer 	= torch.optim.SGD(model.fc.parameters(), lr=lr,weight_decay=1e-5) 
 
 
 # Decay LR by a factor of 0.1 every 7 epochs
 exp_lr_scheduler = lr_scheduler.StepLR(optimizer, step_size=7, gamma=0.1)
 
 ### Dataloaders
-train_loader, val_loader, train_weights = data_loaders.fetch_dataloader(data_path,input_size,batch_size, use_sampler, use_cuda)
+train_loader, val_loader = data_loaders.fetch_dataloader(data_path,input_size,batch_size, output_path, use_sampler, use_cuda)
 
-train_weights = train_weights.type(torch.FloatTensor)
-train_weights = torch.FloatTensor(train_weights) if not use_cuda else torch.FloatTensor(train_weights).cuda()
 
-## Initialize the loss function
-if not use_sampler:
-    if use_cuda:
-        criterion  = torch.nn.CrossEntropyLoss(weight=train_weights).cuda()
-    else:
-        criterion  = torch.nn.CrossEntropyLoss(weight=train_weights)
+if use_cuda:
+    criterion  = torch.nn.CrossEntropyLoss().cuda()
 else:
-    if use_cuda:
-        criterion  = torch.nn.CrossEntropyLoss().cuda()
-    else:
-        criterion  = torch.nn.CrossEntropyLoss()
-
-
-## visualize some images:
-#mages, labels = next(iter(train_loader))
-#data_loaders.make_grid(images,labels,classes)
-
-#data_loaders.visualize_distribution_of_dataset(train_loader, val_loader,classes)
+    criterion  = torch.nn.CrossEntropyLoss()
 
 ## Start training
 logging.info("Finished fetching dataloader for train and val: {}, {}".format(len(train_loader),len(val_loader)))
-
 
 resume_training()	
 

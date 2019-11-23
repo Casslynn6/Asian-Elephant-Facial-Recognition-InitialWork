@@ -9,7 +9,7 @@ import argparse
 
 
 ## Get config data
-def get_config(config="config/elephant.yaml"):
+def get_config(config="configs/elephant.yaml"):
     with open(config,"r") as f:
         return yaml.load(f)
 
@@ -49,7 +49,7 @@ def opts():
     parser.add_argument('--lr', type=float, default=0.1, help='The Learning Rate.')
     parser.add_argument('--momentum', '-m', type=float, default=0.9, help='Momentum.')
     parser.add_argument('--weight-decay', '-wd', type=float, default=0.0001, help='Weight decay (L2 penalty).')
-    parser.add_argument('--schedule', type=int, nargs='+', default=[5000, 7500, 9000],
+    parser.add_argument('--schedule', type=int, nargs='+', default=[2500, 5000, 7500, 9000],
                         help='Decrease learning rate at these epochs.')
     parser.add_argument('--gamma', type=float, default=0.1, help='LR is multiplied by gamma on schedule.')
 

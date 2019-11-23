@@ -92,11 +92,11 @@ class ImbalancedDatasetSampler(torch.utils.data.sampler.Sampler):
 """
 Fetch dataloader - train and validation
 """
-def fetch_dataloader(data_path, input_size,  batch_size, use_sampler = True, use_cuda=True):
+def fetch_dataloader(data_path, input_size,  batch_size, save_image_path,  use_sampler = True, use_cuda=True):
     normalize = torchvision.transforms.Normalize(
     mean=[0.485, 0.456, 0.406], std=[0.229, 0.224, 0.225])
 
-    kwargs = {'num_workers': 1, 'pin_memory': True} if use_cuda else {}
+    kwargs = {'num_workers': 4, 'pin_memory': True} if use_cuda else {}
     
     data_transforms = {
         'train': torchvision.transforms.Compose([
@@ -120,31 +120,34 @@ def fetch_dataloader(data_path, input_size,  batch_size, use_sampler = True, use
             "val": datasets.ImageFolder(root = os.path.join(data_path,"val"), transform = data_transforms["val"])
     }
 
-    train_weights = None
     train_sampler = ImbalancedDatasetSampler(subset["train"])
-    train_weights = train_sampler.label_weights
-
+    
 
     ## Subset   
     if use_sampler == True:
         train_loader = torch.utils.data.DataLoader(subset["train"], batch_size=batch_size, sampler=ImbalancedDatasetSampler(subset["train"]), **kwargs)
-        val_loader = torch.utils.data.DataLoader(subset["val"], batch_size=batch_size, shuffle=False, sampler=None, **kwargs)
     else:
-        
         train_loader = torch.utils.data.DataLoader(subset["train"], batch_size=batch_size, sampler=None, **kwargs)
-        val_loader = torch.utils.data.DataLoader(subset["val"], batch_size=batch_size, shuffle=False, sampler=None, **kwargs)
+    
+    val_loader = torch.utils.data.DataLoader(subset["val"], batch_size=batch_size, shuffle=False, sampler=None, **kwargs)
 
     print('Dataset: %d training samples & %d val samples\n' % (
     len(train_loader.dataset), len(val_loader.dataset)))
+
+
+    class_names = subset['train'].classes
+    print(" Dataset contains following classes",",".join(class_names))
+
+    #visualize_distribution_of_dataset(train_loader,val_loader,class_names,save_image_path)
+    #visualize_images(train_loader,val_loader,class_names,save_image_path)
     
-    
-    return train_loader, val_loader, train_weights
+    return train_loader, val_loader
 
 
 """
 Fetch test dataloader
 """
-def fetch_test_dataloader( input_size, batch_size):
+def fetch_test_dataloader( data_path, input_size, batch_size,save_image_path):
     data_transforms = transforms.Compose ( [
             transforms.Resize ( input_size ),
             transforms.CenterCrop ( input_size ),
@@ -152,54 +155,78 @@ def fetch_test_dataloader( input_size, batch_size):
             transforms.Normalize ( [0.485, 0.456, 0.406], [0.229, 0.224, 0.225] )
         ] )
 
-    test = datasets.ImageFolder(root='data_sep_mov/test',transform=data_transforms)
-    dataloader = torch.utils.data.DataLoader (test, batch_size=batch_size,shuffle=False, num_workers=8,pin_memory=True )
-    
+    test = datasets.ImageFolder(root=data_path,transform=data_transforms)
+    dataloader = torch.utils.data.DataLoader (test, batch_size=batch_size,
+    shuffle=False, num_workers=4,pin_memory=True )
+    class_names = test.classes
+    print(class_names)
+
+    visualize_distribution_of_testset(dataloader,class_names,save_image_path)
     return dataloader
 
 
-"""
-Test images
-"""
-def imshow(img):
-    plt.figure(figsize=(20,10))
-    img = img/2 + 0.5 ## unnormalize
-    npimg = img.numpy()
-    plt.imsave("images/examples_of_trainset_images.png", np.transpose(npimg,(1,2,0)))
-    
-def make_grid(images,labels, classes):
-      imshow(torchvision.utils.make_grid(images))
-    #print(' '.join('%5s' % classes[labels[j]] for j in range(len(labels))))
+def visualize_images(train_loader, val_loader, class_names, save_image_path):
+
+    def imsave(inp, save_path, title=None):
+        """Imshow for Tensor."""
+        inp = inp.numpy().transpose((1, 2, 0))
+        mean = np.array([0.485, 0.456, 0.406])
+        std = np.array([0.229, 0.224, 0.225])
+        inp = std * inp + mean
+        inp = np.clip(inp, 0, 1)
+        plt.imsave(save_path,inp)
+        if title is not None:
+            plt.title(title)
+        plt.pause(0.001)  # pause a bit so that plots are updated
+
+    # Get a batch of training data
+    inputs, classes = next(iter(train_loader))
+    # Make a grid from batch
+    out = torchvision.utils.make_grid(inputs)
+    imsave(out, os.path.join(save_image_path, "train_images.png"), title=[class_names[x] for x in classes])
+
+    # validation batch
+    # Get a batch of training data
+    inputs_v, classes_v = next(iter(val_loader))
+    # Make a grid from batch
+    out = torchvision.utils.make_grid(inputs_v)
+    imsave(out, os.path.join(save_image_path, "val_images.png"), title=[class_names[x] for x in classes_v])
 
 
-
-def visualize_distribution_of_dataset(train_loader, val_loader,classes):
+def visualize_distribution_of_dataset(train_loader, val_loader, classes,save_path):
 
     print('Distribution of classes in trainset dataset:')
-    fig, ax = plt.subplots(figsize=(20,10))
+    fig, (ax1, ax2) = plt.subplots(2, figsize=(40,20))
     
-    labels = [label for _, label in train_loader.dataset.imgs]
+    ## Train
+    train_labels = [label for _, label in train_loader.dataset.imgs]
+    classe_labels, counts = np.unique(train_labels, return_counts=True)
     
-    classe_labels, counts = np.unique(labels, return_counts=True)
-    ax.bar([classes[i] for i in (list(classe_labels))], counts)
-    ax.set_xticks(classe_labels)
-    plt.savefig("images/distribution_train_set.png")
-
-    fig, ax = plt.subplots(figsize=(20,10))
-    labels = [label for _, label in val_loader.dataset.imgs]
-    classe_labels, counts = np.unique(labels, return_counts=True)
-    ax.bar([classes[i] for i in (list(classe_labels))], counts)
-    ax.set_xticks(classe_labels)
-    plt.savefig("images/distribution_val_set.png")
+    
+    ax1.bar([classes[i] for i in (list(classe_labels))], counts)
+    ax1.set_xticks(classe_labels)
+    ax1.set_title("Training set distribution")
 
 
-def visualize_distribution_of_test_dataset(test_loader):
+    ## Validation
+    val_labels = [label for _, label in val_loader.dataset.imgs]
+    val_class_labels, counts = np.unique(val_labels, return_counts=True)
+    ax2.bar([classes[i] for i in (list(val_class_labels))], counts)
+    ax2.set_xticks(val_class_labels)
+    ax2.set_title("Validation set distribution")
+
+    
+    plt.savefig(os.path.join(save_path,"distribution_train_val.png"))
+
+
+def visualize_distribution_of_testset(test_loader, classes,save_path):
     print('Distribution of classes in testset dataset:')
+    print(classes)
     fig, ax = plt.subplots(figsize=(10,4))
     labels = [label for _, label in test_loader.dataset.imgs]
     classe_labels, counts = np.unique(labels, return_counts=True)
     ax.bar([classes[i] for i in (list(classe_labels))], counts)
     ax.set_xticks(classe_labels)
-    plt.savefig("distribution_test_set.png")
+    plt.savefig(os.path.join(save_path,"distribution_test_set.png"))
 
 

@@ -54,14 +54,19 @@ def set_logger(log_path):
 """
 Save model checkpoint
 """
-def save_checkpoint(model, model_path, epoch, train_loss, val_loss, all_epoch_train_losses,all_epoch_val_losses, all_epoch_train_accuracy_prec1, 
-all_epoch_train_accuracy_prec5,all_epoch_val_accuracy_prec1, all_epoch_val_accuracy_prec5):
+def save_checkpoint(model, model_path,model_name, epoch, 
+                train_loss, val_loss, 
+                all_epoch_train_losses,
+                all_epoch_val_losses, 
+                all_epoch_train_accuracy_prec1, 
+                all_epoch_train_accuracy_prec5,
+                all_epoch_val_accuracy_prec1, all_epoch_val_accuracy_prec5):
     if not os.path.exists(model_path):
         print("Checkpoint directory does not exist, {}".format(model_path))
         os.makedirs(model_path)
     else:
         print("Checkpoint exists")
-    torch.save(model.state_dict(), model_path + '/ModelEpoch_{}_Train_loss_{:.4f}_Val_loss_{:.4f}.pth'.format(epoch, train_loss,val_loss))
+    torch.save(model.state_dict(), model_path + '/{}_ModelEpoch_{}_Train_loss_{:.4f}_Val_loss_{:.4f}.pth'.format(model_name,epoch, train_loss,val_loss))
     
     #pdb.set_trace()
     scipy.io.savemat(model_path + '/Losses_epoch_{}'.format(epoch), 
@@ -102,7 +107,7 @@ def load_last_model(model, model_path):
 
     
 
-def visualize_save_plots(train_loss, val_loss, train_acc, val_acc, confusion_matrixes,labels,model_name):
+def visualize_save_plots(train_loss, val_loss, train_acc, val_acc, confusion_matrixes,labels,save_plot_file):
     
 
     ## loss plot
@@ -145,7 +150,7 @@ def visualize_save_plots(train_loss, val_loss, train_acc, val_acc, confusion_mat
     plt.subplot(2, 2, 3)
     sns.heatmap(cm, annot=annot, fmt='', cmap="Blues")
     plt.title("Val accuracy - actual vs predicted")
-    plt.savefig(f"images/all_{model_name}_plots.png")
+    plt.savefig(save_plot_file)
 
 
 def visualize_test_acc(test_accs,confusion_mtxes,all_epochs):
