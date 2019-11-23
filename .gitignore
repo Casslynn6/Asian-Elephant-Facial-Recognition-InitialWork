@@ -26,6 +26,8 @@ MetaFGNet/checkpoints/
 */**/*.pth
 MetaFGNet/.ipynb_checkpoints/
 .vscode/
-SiameseNetwork/.ipynb_checkpoints/
-
-.ipynb_checkpoints
+SiameseNetwork/.ipynb_checkpoints/*.ipynb
+SiameseNetwork/.ipynb_checkpoints/Feature Similarity With Triplet Loss - Hard Batch Sampling-checkpoint.ipynb
+SiameseNetwork/.ipynb_checkpoints/Feature Similarity With Triplet Loss - Hard Batch Sampling-checkpoint.ipynb
+SiameseNetwork/.ipynb_checkpoints/Feature Similarity with Siemese Network - Triplet Loss-checkpoint.ipynb
+SiameseNetwork/.ipynb_checkpoints/Feature Similarity with Siemese Networks - Contrastive Loss-checkpoint.ipynb
