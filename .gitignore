@@ -26,5 +26,6 @@ MetaFGNet/checkpoints/
 */**/*.pth
 MetaFGNet/.ipynb_checkpoints/
 .vscode/
+SiameseNetwork/.ipynb_checkpoints/
 
-
+.ipynb_checkpoints
